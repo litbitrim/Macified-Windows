@@ -93,8 +93,8 @@ Die Release-Assets wurden nach Veröffentlichung ergänzt (signierte EXE, ZIPs,
 CLI). Prüfsummen daher immer gegen die aktuelle Release-Seite abgleichen. Ohne
 `-ExpectedPublisher` meldet das Prüfsummen-Skript **WARN** und Exit-Code 2:
 Hash und Signaturstatus werden angezeigt, aber der Herausgeber wird nicht
-geprüft. Bei gesetztem Herausgeber muss die Authenticode-Signatur gültig sein
-und zum erwarteten Namen passen.
+geprüft. Bei gesetztem Herausgeber muss die Authenticode-Signatur gültig sein;
+der erwartete Name muss exakt dem einfachen Zertifikatsnamen entsprechen.
 
 ## Ist-Stand prüfen
 

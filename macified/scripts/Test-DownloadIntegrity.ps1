@@ -2,6 +2,7 @@
 <#
     Offline integrity check for a manually downloaded installer or archive.
     It does not download or start anything; it only reads the file.
+    -ExpectedPublisher must exactly match the signing certificate's simple name.
     Exit codes: 0 = hash and requested valid publisher match; 1 = mismatch;
     2 = hash matches but publisher verification was not requested.
 #>
@@ -31,9 +32,11 @@ $publisherCheckRequested = -not [string]::IsNullOrWhiteSpace($ExpectedPublisher)
 $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
 $publisherOk = $false
 $publisher = '<none>'
+$publisherName = '<none>'
 if ($null -ne $signature.SignerCertificate) {
     $publisher = $signature.SignerCertificate.Subject
-    $publisherOk = ($publisherCheckRequested -and $signature.Status -eq 'Valid' -and $publisher -like "*$ExpectedPublisher*")
+    $publisherName = $signature.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+    $publisherOk = ($publisherCheckRequested -and $signature.Status -eq 'Valid' -and [string]::Equals($publisherName, $ExpectedPublisher.Trim(), [StringComparison]::OrdinalIgnoreCase))
 }
 
 $version = '<none>'
@@ -50,6 +53,7 @@ Write-Host ('Expected  : {0}' -f $Sha256.ToLowerInvariant())
 Write-Host ('Hash      : {0}' -f $(if ($hashOk) { 'MATCH' } else { 'MISMATCH' })) -ForegroundColor $(if ($hashOk) { 'Green' } else { 'Red' })
 Write-Host ('Signature : {0}' -f $signature.Status)
 Write-Host ('Publisher : {0}' -f $publisher)
+Write-Host ('Publisher name: {0}' -f $publisherName)
 Write-Host ('Publisher check: {0}' -f $(if (-not $publisherCheckRequested) { 'NOT REQUESTED' } elseif ($publisherOk) { 'MATCH' } else { 'MISMATCH' })) -ForegroundColor $(if (-not $publisherCheckRequested) { 'Yellow' } elseif ($publisherOk) { 'Green' } else { 'Red' })
 Write-Host ('Version   : {0}' -f $version)
 Write-Host ''

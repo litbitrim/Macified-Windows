@@ -495,6 +495,24 @@ Describe 'Download integrity' {
             Remove-Item -LiteralPath $fixture -Force -ErrorAction SilentlyContinue
         }
     }
+
+    It 'requires an exact signer simple name instead of a substring' {
+        $file = Join-Path $env:WINDIR 'System32\cmd.exe'
+        $signature = Get-AuthenticodeSignature -LiteralPath $file
+        $signature.Status | Should Be 'Valid'
+        $publisher = $signature.SignerCertificate.GetNameInfo([System.Security.Cryptography.X509Certificates.X509NameType]::SimpleName, $false)
+        $hash = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash
+        $script = Join-Path $root 'scripts\Test-DownloadIntegrity.ps1'
+
+        $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Path $file -Sha256 $hash -ExpectedPublisher $publisher 2>&1 | Out-String
+        $LASTEXITCODE | Should Be 0
+        $output | Should Match 'Publisher check: MATCH'
+
+        $partialPublisher = $publisher.Substring(0, 3)
+        $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Path $file -Sha256 $hash -ExpectedPublisher $partialPublisher 2>&1 | Out-String
+        $LASTEXITCODE | Should Be 1
+        $output | Should Match 'Publisher check: MISMATCH'
+    }
 }
 
 Describe 'Dashboard' {

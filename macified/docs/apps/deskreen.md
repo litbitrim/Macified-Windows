@@ -55,7 +55,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\macified\scripts\Test-Down
 Das Skript startet nichts. Ohne `-ExpectedPublisher` meldet es **WARN** und
 Exit-Code 2: Hash, Authenticode-Status, Publisher und Dateiversion werden
 angezeigt, der Herausgeber wird aber nicht geprüft. Bei gesetztem Herausgeber
-muss die Signatur gültig sein und zum erwarteten Namen passen. Die Signaturlage
+muss die Signatur gültig sein und der erwartete Name exakt dem einfachen
+Zertifikatsnamen entsprechen. Die Signaturlage
 der 3.2.16-Builds ist nicht dokumentiert. **Nicht** die Schutzsoftware
 abschalten, nur weil ein Installer unsigniert ist.
 
