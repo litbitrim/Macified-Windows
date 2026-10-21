@@ -44,6 +44,8 @@ Das Skript:
   mit `UnauthorizedAccessException` ablehnt (die ACL erlaubt Vollzugriff – die
   Sperre sitzt tiefer), und meldet `MANUAL`,
 - merkt den Backup-Pfad in `%LOCALAPPDATA%\MacifiedWindows\last-apply.json`,
+- speichert dort die SHA-256-Prüfsummen von Backup und Konfiguration für den
+  späteren Integritätscheck,
 - endet mit **Exit 2**, solange ein geschützter Wert offen ist.
 
 Erwartete Ausgabe: `WROTE …` für zwei Werte, `MANUAL …` für Widgets, `Backup: …`.

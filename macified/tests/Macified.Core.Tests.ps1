@@ -231,14 +231,84 @@ Describe 'Dry-run integration' {
         }
     }
 
-    It 'undo dry-run accepts a backup and writes nothing' {
-        $fixture = Join-Path $env:TEMP ('macified-undo-{0}.json' -f [guid]::NewGuid())
+    It 'rejects an HKCU backup key outside the configured baseline' {
+        $fixture = Join-Path $env:TEMP ('macified-undo-unconfigured-{0}.json' -f [guid]::NewGuid())
         $payload = [pscustomobject]@{
             CreatedAt = '2026-10-21T12:00:00'
             Items     = @([pscustomobject]@{
-                Path    = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
-                Name    = 'MacifiedTestValueThatDoesNotExist'
-                Kind    = 'DWord'
+                Path    = 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run'
+                Name    = 'MacifiedTestValue'
+                Kind    = 'String'
+                Existed = $true
+                Value   = 'notepad.exe'
+            })
+        }
+
+        try {
+            $payload | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $fixture -Encoding UTF8
+            $code = 0
+            $output = ''
+            try {
+                $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Undo-MacifiedLook.ps1') -BackupPath $fixture 2>&1 | Out-String
+                $code = $LASTEXITCODE
+            }
+            catch {
+                $output = $_.Exception.Message
+                $code = 1
+            }
+            $code | Should Not Be 0
+            $output | Should Match 'unknown or unconfigured setting'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'rejects a backup whose value kind differs from the configured setting' {
+        $fixture = Join-Path $env:TEMP ('macified-undo-kind-{0}.json' -f [guid]::NewGuid())
+        $setting = $config.Look.Settings | Select-Object -First 1
+        $payload = [pscustomobject]@{
+            CreatedAt = '2026-10-21T12:00:00'
+            Items     = @([pscustomobject]@{
+                Id      = $setting.Id
+                Path    = "HKCU:\$($setting.Path)"
+                Name    = $setting.Name
+                Kind    = 'String'
+                Existed = $true
+                Value   = 'invalid kind'
+            })
+        }
+
+        try {
+            $payload | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $fixture -Encoding UTF8
+            $code = 0
+            $output = ''
+            try {
+                $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Undo-MacifiedLook.ps1') -BackupPath $fixture 2>&1 | Out-String
+                $code = $LASTEXITCODE
+            }
+            catch {
+                $output = $_.Exception.Message
+                $code = 1
+            }
+            $code | Should Not Be 0
+            $output | Should Match 'kind does not match the configured setting'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'undo dry-run accepts a backup and writes nothing' {
+        $fixture = Join-Path $env:TEMP ('macified-undo-{0}.json' -f [guid]::NewGuid())
+        $setting = $config.Look.Settings | Select-Object -First 1
+        $payload = [pscustomobject]@{
+            CreatedAt = '2026-10-21T12:00:00'
+            Items     = @([pscustomobject]@{
+                Id      = $setting.Id
+                Path    = "HKCU:\$($setting.Path)"
+                Name    = $setting.Name
+                Kind    = $setting.Kind
                 Existed = $false
                 Value   = $null
             })
@@ -250,6 +320,176 @@ Describe 'Dry-run integration' {
             $LASTEXITCODE | Should Be 0
             $output | Should Match 'DRY RUN'
             $output | Should Match 'remove value'
+            $output | Should Match 'No saved SHA-256 digest'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'rejects a latest backup changed after its saved digest' {
+        $previousLocalAppData = $env:LOCALAPPDATA
+        $testRoot = Join-Path $env:TEMP ('macified-undo-integrity-{0}' -f [guid]::NewGuid())
+        $stateDirectory = Join-Path $testRoot 'MacifiedWindows'
+        $backupDirectory = Join-Path $stateDirectory 'backups'
+        $setting = $config.Look.Settings | Select-Object -First 1
+        New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+
+        $backupPath = Join-Path $backupDirectory 'look-test.json'
+        $payload = [pscustomobject]@{
+            CreatedAt = '2026-10-21T12:00:00'
+            Items     = @([pscustomobject]@{
+                Id      = $setting.Id
+                Path    = "HKCU:\$($setting.Path)"
+                Name    = $setting.Name
+                Kind    = $setting.Kind
+                Existed = $true
+                Value   = 0
+            })
+        }
+        $payload | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $backupPath -Encoding UTF8
+        $expectedBackupSha256 = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        $payload.Items[0].Value = 1
+        $payload | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $backupPath -Encoding UTF8
+
+        $configPath = Join-Path $root 'config\macified.psd1'
+        $state = [pscustomobject]@{
+            BackupPath   = $backupPath
+            BackupSha256 = $expectedBackupSha256
+            ConfigPath   = $configPath
+            ConfigSha256 = (Get-FileHash -LiteralPath $configPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+        $state | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stateDirectory 'last-apply.json') -Encoding UTF8
+
+        try {
+            $env:LOCALAPPDATA = $testRoot
+            $code = 0
+            $output = ''
+            try {
+                $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Undo-MacifiedLook.ps1') 2>&1 | Out-String
+                $code = $LASTEXITCODE
+            }
+            catch {
+                $output = $_.Exception.Message
+                $code = 1
+            }
+            $code | Should Not Be 0
+            $output | Should Match 'Backup integrity check failed'
+        }
+        finally {
+            $env:LOCALAPPDATA = $previousLocalAppData
+            $tempBase = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
+            $resolvedTempRoot = [IO.Path]::GetFullPath($testRoot)
+            if ($resolvedTempRoot.StartsWith($tempBase, [StringComparison]::OrdinalIgnoreCase)) {
+                Remove-Item -LiteralPath $resolvedTempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+    It 'accepts a relocated unchanged config and rejects changed content' {
+        $previousLocalAppData = $env:LOCALAPPDATA
+        $testRoot = Join-Path $env:TEMP ('macified-undo-config-integrity-{0}' -f [guid]::NewGuid())
+        $stateDirectory = Join-Path $testRoot 'MacifiedWindows'
+        $backupDirectory = Join-Path $stateDirectory 'backups'
+        New-Item -ItemType Directory -Path $backupDirectory -Force | Out-Null
+
+        $setting = $config.Look.Settings | Select-Object -First 1
+        $backupPath = Join-Path $backupDirectory 'look-test.json'
+        $payload = [pscustomobject]@{
+            CreatedAt = '2026-10-21T12:00:00'
+            Items     = @([pscustomobject]@{
+                Id      = $setting.Id
+                Path    = "HKCU:\$($setting.Path)"
+                Name    = $setting.Name
+                Kind    = $setting.Kind
+                Existed = $false
+                Value   = $null
+            })
+        }
+        $payload | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath $backupPath -Encoding UTF8
+
+        $configPath = Join-Path $root 'config\macified.psd1'
+        $movedConfigPath = Join-Path $testRoot 'moved-config.psd1'
+        Copy-Item -LiteralPath $configPath -Destination $movedConfigPath
+        $state = [pscustomobject]@{
+            BackupPath   = $backupPath
+            BackupSha256 = (Get-FileHash -LiteralPath $backupPath -Algorithm SHA256).Hash.ToLowerInvariant()
+            ConfigPath   = $movedConfigPath
+            ConfigSha256 = (Get-FileHash -LiteralPath $configPath -Algorithm SHA256).Hash.ToLowerInvariant()
+        }
+        $state | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $stateDirectory 'last-apply.json') -Encoding UTF8
+
+        try {
+            $env:LOCALAPPDATA = $testRoot
+            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Undo-MacifiedLook.ps1') 2>&1 | Out-String
+            $LASTEXITCODE | Should Be 0
+            $output | Should Match 'DRY RUN'
+
+            Add-Content -LiteralPath $movedConfigPath -Value '# changed after apply'
+            $code = 0
+            $output = ''
+            try {
+                $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Undo-MacifiedLook.ps1') -ConfigPath $movedConfigPath 2>&1 | Out-String
+                $code = $LASTEXITCODE
+            }
+            catch {
+                $output = $_.Exception.Message
+                $code = 1
+            }
+            $code | Should Not Be 0
+            $output | Should Match 'Configuration integrity check failed'
+
+            $defaultCode = 0
+            $defaultOutput = ''
+            try {
+                $defaultOutput = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Undo-MacifiedLook.ps1') 2>&1 | Out-String
+                $defaultCode = $LASTEXITCODE
+            }
+            catch {
+                $defaultOutput = $_.Exception.Message
+                $defaultCode = 1
+            }
+            $defaultCode | Should Not Be 0
+            $defaultOutput | Should Match 'Configuration integrity check failed'
+        }
+        finally {
+            $env:LOCALAPPDATA = $previousLocalAppData
+            $tempBase = [IO.Path]::GetFullPath($env:TEMP).TrimEnd('\') + '\'
+            $resolvedTempRoot = [IO.Path]::GetFullPath($testRoot)
+            if ($resolvedTempRoot.StartsWith($tempBase, [StringComparison]::OrdinalIgnoreCase)) {
+                Remove-Item -LiteralPath $resolvedTempRoot -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+}
+
+Describe 'Download integrity' {
+    It 'warns when a matching hash has no requested publisher check' {
+        $fixture = Join-Path $env:TEMP ('macified-integrity-hash-only-{0}.txt' -f [guid]::NewGuid())
+        Set-Content -LiteralPath $fixture -Value 'integrity fixture' -Encoding ASCII
+        $hash = (Get-FileHash -LiteralPath $fixture -Algorithm SHA256).Hash
+
+        try {
+            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Test-DownloadIntegrity.ps1') -Path $fixture -Sha256 $hash 2>&1 | Out-String
+            $LASTEXITCODE | Should Be 2
+            $output | Should Match 'Publisher check: NOT REQUESTED'
+            $output | Should Match 'Result: WARN'
+        }
+        finally {
+            Remove-Item -LiteralPath $fixture -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    It 'fails a requested publisher check when the file is unsigned' {
+        $fixture = Join-Path $env:TEMP ('macified-integrity-unsigned-{0}.txt' -f [guid]::NewGuid())
+        Set-Content -LiteralPath $fixture -Value 'integrity fixture' -Encoding ASCII
+        $hash = (Get-FileHash -LiteralPath $fixture -Algorithm SHA256).Hash
+
+        try {
+            $output = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'scripts\Test-DownloadIntegrity.ps1') -Path $fixture -Sha256 $hash -ExpectedPublisher 'Test Publisher' 2>&1 | Out-String
+            $LASTEXITCODE | Should Be 1
+            $output | Should Match 'Publisher check: MISMATCH'
+            $output | Should Match 'Result: FAIL'
         }
         finally {
             Remove-Item -LiteralPath $fixture -Force -ErrorAction SilentlyContinue
@@ -276,6 +516,9 @@ Describe 'Dashboard' {
         $snapshot = Get-MacifiedDashboardStatus -ConfigPath (Join-Path $root 'config\macified.psd1')
 
         $snapshot.generatedAt | Should Match '^\d{4}-\d{2}-\d{2}T'
+        if ([int]($snapshot.host.build -split '\.')[0] -ge 22000 -and $snapshot.host.os -match '^Windows 10\b') {
+            throw 'Dashboard labelled a Windows 11 build as Windows 10.'
+        }
         $snapshot.localsend.status | Should Match '^(active|ready|offline|missing|error)$'
         $snapshot.airpods.status | Should Match '^(connected|paired|missing|error)$'
         $snapshot.deskreen.status | Should Match '^(active|ready|missing|error)$'

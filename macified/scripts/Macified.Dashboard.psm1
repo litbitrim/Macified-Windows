@@ -331,12 +331,17 @@ function Get-MacifiedDashboardStatus {
 
     $config = Get-MacifiedConfig -Path $ConfigPath
     $nt = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+    $productName = [string]$nt.ProductName
+    # Windows 11 retains a Windows 10 ProductName in this registry value.
+    if ([int]$nt.CurrentBuild -ge 22000 -and $productName -match '^Windows 10\b') {
+        $productName = $productName -replace '^Windows 10\b', 'Windows 11'
+    }
 
     return [ordered]@{
         generatedAt = (Get-Date).ToString('o')
         host        = [ordered]@{
             name           = $env:COMPUTERNAME
-            os             = [string]$nt.ProductName
+            os             = $productName
             build          = ('{0}.{1}' -f $nt.CurrentBuild, $nt.UBR)
             displayVersion = [string]$nt.DisplayVersion
         }

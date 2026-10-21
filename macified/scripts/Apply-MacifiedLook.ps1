@@ -27,6 +27,8 @@ if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
 
 Import-Module (Join-Path $scriptDirectory 'Macified.Core.psm1') -Force
 $config = Get-MacifiedConfig -Path $ConfigPath
+$resolvedConfigPath = (Resolve-Path -LiteralPath $ConfigPath -ErrorAction Stop).Path
+$configSha256 = (Get-FileHash -LiteralPath $resolvedConfigPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
 # Refuse any configuration that would leave the per-user hive.
 foreach ($setting in $config.Look.Settings) {
@@ -119,6 +121,8 @@ if ($writable.Count -gt 0) {
     }
 
     $backup | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $backupPath -Encoding UTF8
+    $resolvedBackupPath = (Resolve-Path -LiteralPath $backupPath -ErrorAction Stop).Path
+    $backupSha256 = (Get-FileHash -LiteralPath $resolvedBackupPath -Algorithm SHA256).Hash.ToLowerInvariant()
 
     foreach ($item in $writable) {
         try {
@@ -144,9 +148,12 @@ if ($writable.Count -gt 0) {
 
     $statePath = Join-Path (Split-Path -Parent $BackupDirectory) 'last-apply.json'
     [pscustomobject]@{
-        AppliedAt  = (Get-Date).ToString('s')
-        BackupPath = $backupPath
-        Values     = ($writable.Count - $failed.Count)
+        AppliedAt    = (Get-Date).ToString('s')
+        BackupPath   = $resolvedBackupPath
+        BackupSha256 = $backupSha256
+        ConfigPath   = $resolvedConfigPath
+        ConfigSha256 = $configSha256
+        Values       = ($writable.Count - $failed.Count)
     } | ConvertTo-Json | Set-Content -LiteralPath $statePath -Encoding UTF8
 
     Write-Host ('Backup: {0}' -f $backupPath) -ForegroundColor Yellow

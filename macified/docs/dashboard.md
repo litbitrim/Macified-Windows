@@ -23,6 +23,7 @@ im LAN nicht erreichbar und öffnet keinen Browser.
 
 | Karte | Quellen | Bedeutung |
 | --- | --- | --- |
+| **Host** | Computername, `HKLM\...\CurrentVersion` | Header zeigt Name und Build; der JSON-Snapshot enthält zusätzlich OS und DisplayVersion. Windows 11 wird ab Build 22000 anhand der Buildnummer bezeichnet, da ProductName noch „Windows 10“ liefern kann. |
 | **LocalSend** | Uninstall-Eintrag, Prozess, TCP-Tabelle, Firewall-Regeln, Netzwerkprofile | `Bereit` heißt: Listener auf 53317. Peers erscheinen nur bei bestehenden TCP-Verbindungen, nicht bei reiner Geräteerkennung. |
 | **AirPods** | Bluetooth-PnP-Geräte, Audioendpunkte | A2DP/HFP werden getrennt gezählt. `Im Case` markiert vorhandene, aber inaktive Endpunkte. Batteriestand liefert Windows nicht. |
 | **Deskreen** | Uninstall-Eintrag, Prozess, Display-PnP, TCP-Tabelle | Zeigt Installation, virtuellen Monitor und Anzahl bestehender Viewer-Verbindungen. Ohne virtuellen Monitor ist nur Spiegeln möglich. |

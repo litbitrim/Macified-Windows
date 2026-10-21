@@ -2,6 +2,8 @@
 <#
     Offline integrity check for a manually downloaded installer or archive.
     It does not download or start anything; it only reads the file.
+    Exit codes: 0 = hash and requested valid publisher match; 1 = mismatch;
+    2 = hash matches but publisher verification was not requested.
 #>
 [CmdletBinding()]
 param(
@@ -24,15 +26,14 @@ if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
 $file = Get-Item -LiteralPath $Path
 $hash = (Get-FileHash -LiteralPath $file.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
 $hashOk = ($hash -eq $Sha256.ToLowerInvariant())
+$publisherCheckRequested = -not [string]::IsNullOrWhiteSpace($ExpectedPublisher)
 
 $signature = Get-AuthenticodeSignature -LiteralPath $file.FullName
-$publisherOk = $null
+$publisherOk = $false
 $publisher = '<none>'
 if ($null -ne $signature.SignerCertificate) {
     $publisher = $signature.SignerCertificate.Subject
-    if (-not [string]::IsNullOrWhiteSpace($ExpectedPublisher)) {
-        $publisherOk = $publisher -like "*$ExpectedPublisher*"
-    }
+    $publisherOk = ($publisherCheckRequested -and $signature.Status -eq 'Valid' -and $publisher -like "*$ExpectedPublisher*")
 }
 
 $version = '<none>'
@@ -49,9 +50,7 @@ Write-Host ('Expected  : {0}' -f $Sha256.ToLowerInvariant())
 Write-Host ('Hash      : {0}' -f $(if ($hashOk) { 'MATCH' } else { 'MISMATCH' })) -ForegroundColor $(if ($hashOk) { 'Green' } else { 'Red' })
 Write-Host ('Signature : {0}' -f $signature.Status)
 Write-Host ('Publisher : {0}' -f $publisher)
-if ($null -ne $publisherOk) {
-    Write-Host ('Publisher : {0}' -f $(if ($publisherOk) { 'MATCH' } else { 'MISMATCH' })) -ForegroundColor $(if ($publisherOk) { 'Green' } else { 'Red' })
-}
+Write-Host ('Publisher check: {0}' -f $(if (-not $publisherCheckRequested) { 'NOT REQUESTED' } elseif ($publisherOk) { 'MATCH' } else { 'MISMATCH' })) -ForegroundColor $(if (-not $publisherCheckRequested) { 'Yellow' } elseif ($publisherOk) { 'Green' } else { 'Red' })
 Write-Host ('Version   : {0}' -f $version)
 Write-Host ''
 
@@ -60,10 +59,15 @@ if (-not $hashOk) {
     exit 1
 }
 
-if ($null -ne $publisherOk -and -not $publisherOk) {
-    Write-Host 'Result: FAIL (publisher mismatch)' -ForegroundColor Red
+if ($publisherCheckRequested -and -not $publisherOk) {
+    Write-Host 'Result: FAIL (publisher missing, invalid signature, or mismatch)' -ForegroundColor Red
     exit 1
 }
 
-Write-Host 'Result: PASS (hash matches; signature status shown above)' -ForegroundColor Green
+if (-not $publisherCheckRequested) {
+    Write-Host 'Result: WARN (hash matches; publisher not checked; signature status shown above)' -ForegroundColor Yellow
+    exit 2
+}
+
+Write-Host 'Result: PASS (hash and valid publisher signature match)' -ForegroundColor Green
 exit 0

@@ -14,12 +14,29 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\macified\scripts\Undo-Maci
 ```
 
 Das Skript liest standardmäßig `%LOCALAPPDATA%\MacifiedWindows\last-apply.json`
-und stellt den dort genannten Stand wieder her. Alternativ:
+und stellt den dort genannten Stand wieder her. Vor dem Wiederherstellen prüft
+es den SHA-256 des letzten Backups und der zugehörigen Konfiguration; bei einer
+Abweichung bricht es ab. Es akzeptiert nur Werte, die in der Konfiguration
+aufgeführt sind, und prüft Pfad sowie Datentyp.
+
+Wurde die letzte Konfigurationsdatei verschoben, kann `-ConfigPath` auf eine
+inhaltlich identische Kopie zeigen. Eine geänderte Datei wird auch bei explizitem
+`-ConfigPath` abgelehnt.
+
+Ein älteres oder manuell ausgewähltes Backup wird gegen die Standardkonfiguration
+geprüft. Wurde es mit einer eigenen Konfiguration erstellt, diese explizit
+angeben:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\macified\scripts\Undo-MacifiedLook.ps1 `
-  -BackupPath "$env:LOCALAPPDATA\MacifiedWindows\backups\look-20261021-143000.json" -Apply
+  -BackupPath "$env:LOCALAPPDATA\MacifiedWindows\backups\look-20261021-143000.json" `
+  -ConfigPath .\my-macified.psd1 -Apply
 ```
+
+Für ältere/manuelle Backups ist kein ursprünglicher SHA-256-Wert gespeichert;
+das Skript warnt davor und begrenzt die Wiederherstellung weiterhin auf die
+konfigurierten Pfade und Datentypen. Nur das letzte Apply wird gegen die
+gespeicherten Backup- und Config-Hashes geprüft.
 
 Werte, die vorher **nicht existierten**, werden entfernt, nicht auf `0` gesetzt.
 Damit gilt wieder der Windows-Default. `TaskbarDa` wurde nie geschrieben; ein

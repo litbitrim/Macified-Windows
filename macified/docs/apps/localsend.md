@@ -10,7 +10,7 @@
 | Quelle | [github.com/localsend/localsend](https://github.com/localsend/localsend), [Release v1.18.2](https://github.com/localsend/localsend/releases/tag/v1.18.2) |
 | Firewall | 2 eingehende Allow-Regeln, Profil `Private, Public`, aktiv |
 | Netzwerkprofil | Ethernet `Netzwerk` = `Public` |
-| App-Settings | unter `%APPDATA%\LocalSend` **nicht vorhanden** → noch nicht eingerichtet/gestartet |
+| Prozess und Ports | aktiv; TCP/UDP 53317 auf allen Interfaces |
 | Autostart | nicht eingetragen (weder `Run`-Key noch Startup-Ordner) |
 
 ## Wofür
@@ -18,6 +18,14 @@
 Lokaler Datei- und Texttransfer zwischen Windows, Android, iOS, macOS und Linux
 ohne Cloud-Konto. Geräte finden sich per Multicast im selben Netz, die Übertragung
 läuft direkt von Gerät zu Gerät.
+
+## Live-Test am 21.10.2026
+
+- Mac → Windows: **bestanden**. `localsend-test.txt`, 39 Byte; Windows-Inhalt
+  und SHA-256 `d3e3fb9debdc859194ab2b14369679ee3425b1b23cdd02dbbcebd7b733b66074`
+  stimmen mit der auf dem Mac erzeugten Testdatei überein.
+- Windows → Mac: an „Nice Lemon“ gesendet; LocalSend wartete auf Annahme.
+  Der Mac-Empfang und Rück-Hash sind noch nicht bestätigt.
 
 ## Netzwerk und Sicherheit
 
@@ -82,7 +90,11 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\macified\scripts\Test-Down
 ```
 
 Die Release-Assets wurden nach Veröffentlichung ergänzt (signierte EXE, ZIPs,
-CLI). Prüfsummen daher immer gegen die aktuelle Release-Seite abgleichen.
+CLI). Prüfsummen daher immer gegen die aktuelle Release-Seite abgleichen. Ohne
+`-ExpectedPublisher` meldet das Prüfsummen-Skript **WARN** und Exit-Code 2:
+Hash und Signaturstatus werden angezeigt, aber der Herausgeber wird nicht
+geprüft. Bei gesetztem Herausgeber muss die Authenticode-Signatur gültig sein
+und zum erwarteten Namen passen.
 
 ## Ist-Stand prüfen
 

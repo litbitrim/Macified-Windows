@@ -4,8 +4,10 @@
 
 | Merkmal | Wert |
 | --- | --- |
-| Windows-App | **portable Variante gestartet**, keine MSI-Installation; Viewer-URL antwortet HTTP 200 |
-| Virtueller Monitor | **nein**; einziger Display-Adapter ist die RX 6950 XT |
+| Windows-App | **aktuell gestoppt**; kein Listener auf TCP 3131, lokaler Viewer antwortet nicht |
+| Firewall | Allow-Regeln zeigen auf einen veralteten Temp-Pfad; aktives Netzwerkprofil `Public` |
+| Virtueller Monitor | **nein**; kein Virtual Display Adapter vorhanden |
+| Mac-Viewer | nicht getestet; keine Hostfreigabe bestätigt |
 | Lizenz | **AGPL-3.0** |
 | Upstream | [pavlobu/deskreen](https://github.com/pavlobu/deskreen), Tag [v3.2.16](https://github.com/pavlobu/deskreen/releases/tag/v3.2.16) |
 | Release-Datum | 2026-07-08 |
@@ -16,7 +18,12 @@ Deskreen CE ist die offizielle Community Edition aus dem Upstream-Repository,
 kein separater Fork. Es zeigt einen Windows-Bildschirm in einem Browser auf
 einem anderen Gerät im selben Netz.
 
-Der Mac-Viewer und die Hostfreigabe sind noch nicht gemeinsam getestet. Deskreen ist hier ein vorläufiger Bildschirmtest; die gewünschte DisplayShare-Funktion mit Rea/Morulot-Parität ist damit nicht nachgewiesen.
+Der native Windows-Projektionspfad ist auf diesem Host nicht verfügbar: der
+Read-only-Check fand keinen Wi-Fi-Direct-Adapter, keinen Wireless-Display-Dienst
+und keine Connect-/Projection-Empfänger-App. Deskreen kann Bildschirmspiegelung
+im Browser bereitstellen, ersetzt aber keinen virtuellen Monitor für einen
+erweiterten Desktop. Die gewünschte DisplayShare-Funktion mit
+Rea/Morulot-Parität ist damit nicht nachgewiesen.
 
 ## Wichtig: Spiegeln vs. erweitern
 
@@ -45,11 +52,12 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\macified\scripts\Test-Down
   -Sha256 de6052a0d5dc893e0d16da6a8da82aacae5803602a3efdde50037b536e3213f8
 ```
 
-Das Skript startet nichts. Es zeigt Hash-Vergleich, Authenticode-Status,
-Publisher und Dateiversion. Die Signaturlage der 3.2.16-Builds ist nicht
-dokumentiert; die generische Anleitung des Projekts warnt teilweise vor
-fehlender Signatur. **Nicht** die Schutzsoftware abschalten, nur weil ein
-Installer unsigniert ist.
+Das Skript startet nichts. Ohne `-ExpectedPublisher` meldet es **WARN** und
+Exit-Code 2: Hash, Authenticode-Status, Publisher und Dateiversion werden
+angezeigt, der Herausgeber wird aber nicht geprüft. Bei gesetztem Herausgeber
+muss die Signatur gültig sein und zum erwarteten Namen passen. Die Signaturlage
+der 3.2.16-Builds ist nicht dokumentiert. **Nicht** die Schutzsoftware
+abschalten, nur weil ein Installer unsigniert ist.
 
 ## Einrichtung (manuell)
 
