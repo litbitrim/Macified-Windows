@@ -1,0 +1,22 @@
+# Agent/workspace metadata (not part of the project)
+.freebuff/
+
+# Never commit upstream or downloaded packages, themes or binaries
+*.exe
+*.msi
+*.msix
+*.dll
+*.sys
+*.scr
+*.inf
+*.zip
+*.rar
+*.7z
+*.msstyles
+*.theme
+*.rmskin
+
+# Local verification output
+macified/.artifacts/
+*.log
+Thumbs.db
