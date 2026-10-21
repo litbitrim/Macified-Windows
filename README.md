@@ -1,3 +1,5 @@
+> **Fork-Hinweis:** Öffentlicher Fork von [Runixe786/Macified-Windows](https://github.com/Runixe786/Macified-Windows). Das Original ist seit 2025-07-17 archiviert und hat keine Lizenz (GitHub-API: `license: null`). Aus dem Upstream werden keine Binärdateien, Themes oder Skripte übernommen oder weiterverbreitet. Die eigenständigen Ergänzungen liegen unter [`macified/`](macified/) (MIT, siehe [`macified/LICENSE`](macified/LICENSE)); Herkunft und Drittlizenzen: [`NOTICE.md`](NOTICE.md).
+
 [![GitHub Logo](https://graph.org/file/b08506b345f39971a004c.jpg)](https://github.com/runixe786/Macified_Windows)
     <h1 align="center">Macified Windows</h1>
 
